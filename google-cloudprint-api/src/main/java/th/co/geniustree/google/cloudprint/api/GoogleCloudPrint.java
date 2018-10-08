@@ -4,38 +4,18 @@ package th.co.geniustree.google.cloudprint.api;
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-import th.co.geniustree.google.cloudprint.api.util.ResponseUtils;
+
+import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
+import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.http.*;
+import com.google.api.client.util.Maps;
 import com.google.common.io.ByteStreams;
 import com.google.gson.Gson;
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.StringReader;
-import java.io.UnsupportedEncodingException;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.Charset;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.logging.Level;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.apache.commons.codec.binary.Base64;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.mime.MultipartEntity;
-import org.apache.http.entity.mime.content.InputStreamBody;
-import org.apache.http.entity.mime.content.StringBody;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.jivesoftware.smack.ConnectionConfiguration;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
 import org.jivesoftware.smack.PacketListener;
 import org.jivesoftware.smack.XMPPConnection;
-import org.jivesoftware.smack.XMPPException;
 import org.jivesoftware.smack.filter.AndFilter;
 import org.jivesoftware.smack.filter.FromContainsFilter;
 import org.jivesoftware.smack.filter.PacketTypeFilter;
@@ -44,32 +24,24 @@ import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.packet.Packet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import th.co.geniustree.google.cloudprint.api.exception.CloudPrintAuthenticationException;
-import th.co.geniustree.google.cloudprint.api.exception.GoogleAuthenticationException;
 import th.co.geniustree.google.cloudprint.api.exception.CloudPrintException;
-import th.co.geniustree.google.cloudprint.api.model.response.ControlJobResponse;
-import th.co.geniustree.google.cloudprint.api.model.response.DeletePrinterResponse;
-import th.co.geniustree.google.cloudprint.api.model.response.FecthJobResponse;
-import th.co.geniustree.google.cloudprint.api.model.Job;
-import th.co.geniustree.google.cloudprint.api.model.JobListener;
-import th.co.geniustree.google.cloudprint.api.model.JobStatus;
-import th.co.geniustree.google.cloudprint.api.model.Printer;
-import th.co.geniustree.google.cloudprint.api.model.PrinterStatus;
-import th.co.geniustree.google.cloudprint.api.model.RoleShare;
-import th.co.geniustree.google.cloudprint.api.model.response.SearchPrinterResponse;
-import th.co.geniustree.google.cloudprint.api.model.SubmitJob;
-import th.co.geniustree.google.cloudprint.api.model.response.DeleteJobResponse;
-import th.co.geniustree.google.cloudprint.api.model.response.JobResponse;
-import th.co.geniustree.google.cloudprint.api.model.response.ListPrinterResponse;
-import th.co.geniustree.google.cloudprint.api.model.response.PrinterInformationResponse;
-import th.co.geniustree.google.cloudprint.api.model.response.RegisterPrinterResponse;
-import th.co.geniustree.google.cloudprint.api.model.response.SharePrinterResponse;
-import th.co.geniustree.google.cloudprint.api.model.response.SubmitJobResponse;
-import th.co.geniustree.google.cloudprint.api.model.response.UpdatePrinterResponse;
+import th.co.geniustree.google.cloudprint.api.model.*;
+import th.co.geniustree.google.cloudprint.api.model.response.*;
+
+import java.io.*;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.Charset;
+import java.security.GeneralSecurityException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
- *
  * @author jittagorn pitakmetagoon
+ * @author Barry Pitman
  * @see https://developers.google.com/cloud-print/
  */
 public class GoogleCloudPrint {
@@ -84,49 +56,28 @@ public class GoogleCloudPrint {
     private static final String CLOUD_PRINT_SERVICE = "cloudprint";
     private static final String FILTER_PACKAGE_FROM = "cloudprint.google.com";
     //
-    private GoogleAuthentication authen;
+    private final HttpRequestFactory requestFactory;
     private XMPPConnection xmppConnection;
     private Gson gson;
     private List<JobListener> jobListeners;
     //
 
-    public GoogleCloudPrint() {
-        gson = new Gson();
-        jobListeners = new ArrayList<JobListener>();
+    public GoogleCloudPrint(HttpRequestFactory requestFactory) {
+        this.gson = new Gson();
+        this.jobListeners = new ArrayList<>();
+        this.requestFactory = requestFactory;
     }
 
-    /**
-     * For connect to Google Cloud Print Service and Google Talk for real time
-     * job notify<br/><br/>
-     *
-     * @param privateKeyPath Google Account or Email Address
-     * @param privateKeyName Email Password
-     * @param source Short string identifying your application, for logging
-     * purposes. This string take from :
-     * "companyName-applicationName-VersionID".
-     * @throws CloudPrintAuthenticationException
-     */
-    public void connect(String privateKeyPath, String privateKeyName, String source, String email) throws CloudPrintAuthenticationException{
+    public GoogleCloudPrint(GoogleCredential authen) {
+        gson = new Gson();
+        jobListeners = new ArrayList<>();
+
         try {
-            //Google Cloud Print Service Authen
-            authen = new GoogleAuthentication(CLOUD_PRINT_SERVICE);
-            authen.login(privateKeyPath, privateKeyName, source, email);
-            //
-            //Google Talk XMPP Authen
-//            ConnectionConfiguration config = new ConnectionConfiguration(GOOGLE_TALK_URL, GOOGLE_TALK_PORT, GOOGLE_TALK_SERVICE);
-//            xmppConnection = new XMPPConnection(config);
-//            xmppConnection.connect();
-//            xmppConnection.login(privateKeyPath, privateKeyName);
-//
-//            LOG.info("Connected to {}", GoogleAuthentication.LOGIN_URL + "[" + CLOUD_PRINT_SERVICE + "] ...");
-//            LOG.info("Connected to {}", GOOGLE_TALK_URL + ":" + GOOGLE_TALK_PORT + "[" + GOOGLE_TALK_SERVICE + "] ...");
-//            LOG.info("Start job listener from {}", GOOGLE_TALK_URL + ":" + GOOGLE_TALK_PORT + "[" + GOOGLE_TALK_SERVICE + "] ...");
-//            //
-//            listenerJob(privateKeyPath);
-//        } catch (XMPPException ex) {
-//            throw new CloudPrintAuthenticationException(ex);
-        } catch (GoogleAuthenticationException ex) {
-            throw new CloudPrintAuthenticationException(ex);
+            HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
+            this.requestFactory = transport.createRequestFactory(authen);
+
+        } catch (GeneralSecurityException | IOException e) {
+            throw new IllegalStateException(e.getMessage(), e);
         }
     }
 
@@ -208,7 +159,7 @@ public class GoogleCloudPrint {
      * @throws CloudPrintException
      */
     private String openConnection(String serviceAndParameters) throws CloudPrintException {
-        return openConnection(serviceAndParameters, null);
+        return openConnection(serviceAndParameters, new EmptyContent());
     }
 
     /**
@@ -219,40 +170,17 @@ public class GoogleCloudPrint {
      * @return service response
      * @throws CloudPrintException
      */
-    private String openConnection(String serviceAndParameters, MultipartEntity entity) throws CloudPrintException {
-        String response = "";
-        HttpPost httpPost = null;
-        InputStream inputStream = null;
+    private String openConnection(String serviceAndParameters, HttpContent entity) throws CloudPrintException {
+
+        String url = CLOUD_PRINT_URL + serviceAndParameters;
         try {
-            String request = CLOUD_PRINT_URL + serviceAndParameters;
-            HttpClient httpClient = new DefaultHttpClient();
-            httpPost = new HttpPost(request);
-            httpPost.setHeader("X-CloudPrint-Proxy", authen.getSource());
-            httpPost.setHeader("Authorization", "Bearer " + authen.getAuth());
 
-            if (entity != null) {
-                httpPost.setEntity(entity);
-            }
+            HttpRequest request = requestFactory.buildPostRequest(new GenericUrl(url), entity);
+            com.google.api.client.http.HttpResponse response = request.execute();
+            return IOUtils.toString(response.getContent());
 
-            HttpResponse httpResponse = httpClient.execute(httpPost);
-            inputStream = httpResponse.getEntity().getContent();
-            response = ResponseUtils.streamToString(inputStream);
-        } catch (Exception ex) {
-            throw new CloudPrintException(ex);
-        } finally {
-            if (inputStream != null) {
-                try {
-                    inputStream.close();
-                } catch (IOException ex) {
-                    throw new CloudPrintException(ex);
-                }
-            }
-
-            if (httpPost != null && !httpPost.isAborted()) {
-                httpPost.abort();
-            }
-
-            return response;
+        } catch (IOException e) {
+            throw new CloudPrintException("Failed to send post to " + url + ": " + e.getMessage(), e);
         }
     }
 
@@ -292,20 +220,20 @@ public class GoogleCloudPrint {
      * except for capabilities which must be retrieved using a call to
      * /printerCapabilities.
      *
-     * @param query (optional) If q is specified, then only printers
-     * corresponding to the query will be returned. If q is not specified, then
-     * all printers accessible (owned or shared with) the authenticated user
-     * will be returned. The API looks for an approximate match between q and
-     * the name and tag fields (ie. [field] == %q%). Thus, setting q = "^recent"
-     * will return the list of recently used printers. Setting q = ^own or q =
-     * ^shared" will return the list of printers either owned by or shared with
-     * this user.
+     * @param query  (optional) If q is specified, then only printers
+     *               corresponding to the query will be returned. If q is not specified, then
+     *               all printers accessible (owned or shared with) the authenticated user
+     *               will be returned. The API looks for an approximate match between q and
+     *               the name and tag fields (ie. [field] == %q%). Thus, setting q = "^recent"
+     *               will return the list of recently used printers. Setting q = ^own or q =
+     *               ^shared" will return the list of printers either owned by or shared with
+     *               this user.
      *
      * @param status (optional) If connection_status is specified, then only
-     * printers whose connection status matches the supplied value will be
-     * returned. You may provide one of the four values listed above or you may
-     * specify ALL, which will match all printers, including those marked as
-     * DORMANT.
+     *               printers whose connection status matches the supplied value will be
+     *               returned. You may provide one of the four values listed above or you may
+     *               specify ALL, which will match all printers, including those marked as
+     *               DORMANT.
      *
      * @return SearchPrinterResponse
      * @throws CloudPrintException
@@ -404,8 +332,8 @@ public class GoogleCloudPrint {
      * printed due to an error<br/>
      *
      * @param printerId (optional) If a printer ID is specified, the print jobs
-     * for that printer will be retrieved (instead of retrieving the jobs for
-     * the user whose session this is).
+     *                  for that printer will be retrieved (instead of retrieving the jobs for
+     *                  the user whose session this is).
      *
      * @return JobResponse
      * @throws CloudPrintException
@@ -462,7 +390,7 @@ public class GoogleCloudPrint {
      * only and has no effect if you download documents in PDF format.
      *
      * @param printerId Unique printer identification (generated by Google Cloud
-     * Print).
+     *                  Print).
      * @return FecthJobResponse
      * @throws CloudPrintException
      */
@@ -494,8 +422,8 @@ public class GoogleCloudPrint {
      * to true.<br/>
      *
      * @param printerId The ID of the printer whose capabilities we require. The
-     * printer must be accessible (either owned or shared with) the user
-     * authenticated by the current authenticated session.
+     *                  printer must be accessible (either owned or shared with) the user
+     *                  authenticated by the current authenticated session.
      *
      * @return PrinterInformationResponse
      * @throws CloudPrintException
@@ -528,14 +456,17 @@ public class GoogleCloudPrint {
      * to true.<br/>
      *
      * @param printerId The ID of the printer whose capabilities we require. The
-     * printer must be accessible (either owned or shared with) the user
-     * authenticated by the current authenticated session.
+     *                  printer must be accessible (either owned or shared with) the user
+     *                  authenticated by the current authenticated session.
      *
-     * @param status A Boolean that specifies whether or not to return the
-     * printer's connectionStatus field.
+     * @param status    A Boolean that specifies whether or not to return the
+     *                  printer's connectionStatus field.
      *
      * @return
      * @throws CloudPrintException
+     * @see PrinterStatus}<br/><br/>
+     * Note that this field is only returned if printer_connection_status is set
+     * to true.<br/>
      */
     public PrinterInformationResponse getPrinterInformation(String printerId, PrinterStatus status) throws CloudPrintException {
         return getPrinterInformation(printerId + "&printer_connection_status=" + status);
@@ -544,7 +475,7 @@ public class GoogleCloudPrint {
     /**
      * For download file from google cloud print when job arrive<br/>
      *
-     * @param fileUrl from job.getFileUrl() when job arrive(job notify) or other
+     * @param fileUrl    from job.getFileUrl() when job arrive(job notify) or other
      * @param outputFile must is pdf file (.pdf only)
      * @throws CloudPrintException
      */
@@ -569,7 +500,7 @@ public class GoogleCloudPrint {
     /**
      * For download file from google cloud print when job arrive<br/>
      *
-     * @param fileUrl from job.getFileUrl() when job arrive(job notify) or other
+     * @param fileUrl      from job.getFileUrl() when job arrive(job notify) or other
      * @param outputStream (NOT CLOSE OutputStream)
      * @throws CloudPrintException
      */
@@ -580,9 +511,10 @@ public class GoogleCloudPrint {
         try {
             URL url = new URL(fileUrl);
             connection = (HttpURLConnection) url.openConnection();
-            connection.addRequestProperty("X-CloudPrint-Proxy", authen.getSource());
-            connection.addRequestProperty("Content-Length", fileUrl.getBytes().length + "");
-            connection.addRequestProperty("Authorization", "GoogleLogin auth=" + authen.getAuth());
+            // todo
+//            connection.addRequestProperty("X-CloudPrint-Proxy", authen.getSource());
+//            connection.addRequestProperty("Content-Length", fileUrl.getBytes().length + "");
+//            connection.addRequestProperty("Authorization", "GoogleLogin auth=" + authen.getAuth());
             inputStream = connection.getInputStream();
 
             ByteStreams.copy(inputStream, outputStream);
@@ -613,75 +545,67 @@ public class GoogleCloudPrint {
      * as described below.<br/><br/>
      *
      * @param submitJob has attribute following : <br/><br/>
-     * <b>printerid</b> Unique printer identification (generated by Google Cloud
-     * Print). To get valid printer IDs for a given user, retrieve the list of
-     * available printers for that Google Account by querying the /search
-     * service interface.<br/><br/>
-     * <b>title</b> Title of the print job, to be used within GCP.<br/><br/>
-     * <b>capabilities</b> Printer capabilities (XPS or PPD). Each GCP printer
-     * has, associated with it, a list of pair-value capabilities representing
-     * printer-specific attributes (available printing formats, copy count,
-     * etc.) Capabilities for a given printer can be retrieved using the /list
-     * service interface. These retrieved capabilities can then be used to
-     * specify desired options on the print job (for instance, print 5 copies
-     * instead of the default 1, or print duplex instead of single
-     * sided).<br/><br/>
-     * <b>content</b> Document to print.<br/><br/>
-     * <b>contentType</b> Document type. Currently, valid document types are:
-     * url, application/pdf, image/jpeg, or image/png. If contentType = url, the
-     * URL should point to a publicly accessible page (there should be no
-     * necessary authentication, cookies, etc.) The linked resource can be a
-     * PDF, JPG, or PNG file, but we recommend PDF for highest
-     * fidelity.<br/><br/>
-     * <b>tag</b> One or more tags to add to the print job. You can attach a set
-     * of unique tags to a print job, and these will be available to the printer
-     * to which the print job is submitted. This feature may be useful if your
-     * application both sends and receives print jobs.<br/>
+     *                  <b>printerid</b> Unique printer identification (generated by Google Cloud
+     *                  Print). To get valid printer IDs for a given user, retrieve the list of
+     *                  available printers for that Google Account by querying the /search
+     *                  service interface.<br/><br/>
+     *                  <b>title</b> Title of the print job, to be used within GCP.<br/><br/>
+     *                  <b>capabilities</b> Printer capabilities (XPS or PPD). Each GCP printer
+     *                  has, associated with it, a list of pair-value capabilities representing
+     *                  printer-specific attributes (available printing formats, copy count,
+     *                  etc.) Capabilities for a given printer can be retrieved using the /list
+     *                  service interface. These retrieved capabilities can then be used to
+     *                  specify desired options on the print job (for instance, print 5 copies
+     *                  instead of the default 1, or print duplex instead of single
+     *                  sided).<br/><br/>
+     *                  <b>content</b> Document to print.<br/><br/>
+     *                  <b>contentType</b> Document type. Currently, valid document types are:
+     *                  url, application/pdf, image/jpeg, or image/png. If contentType = url, the
+     *                  URL should point to a publicly accessible page (there should be no
+     *                  necessary authentication, cookies, etc.) The linked resource can be a
+     *                  PDF, JPG, or PNG file, but we recommend PDF for highest
+     *                  fidelity.<br/><br/>
+     *                  <b>tag</b> One or more tags to add to the print job. You can attach a set
+     *                  of unique tags to a print job, and these will be available to the printer
+     *                  to which the print job is submitted. This feature may be useful if your
+     *                  application both sends and receives print jobs.<br/>
      *
      * @return SubmitJobResponse
      * @throws CloudPrintException
      */
     public SubmitJobResponse submitJob(SubmitJob submitJob) throws CloudPrintException {
-        ByteArrayInputStream byteArrayInputStream = null;
-        InputStream inputStream = null;
         String response = "";
         try {
-            byteArrayInputStream = new ByteArrayInputStream(submitJob.getContent());
-            InputStreamBody inputStreamBody = new InputStreamBody(byteArrayInputStream, submitJob.getContentType(), submitJob.getTitle());
 
-            MultipartEntity entity = new MultipartEntity();
-            entity.addPart("content", inputStreamBody);
-            entity.addPart("contentType", new StringBody(submitJob.getContentType()));
-            entity.addPart("title", new StringBody(submitJob.getTitle()));
-            entity.addPart("ticket", new StringBody(submitJob.getTicketJSON()));
+            // see https://stackoverflow.com/questions/23001661/post-multipart-form-with-google-http-java-client
+            Map<String, String> parameters = Maps.newHashMap();
+            parameters.put("printerid", submitJob.getPrinterId());
+            parameters.put("title", submitJob.getTitle());
+            parameters.put("contentType", submitJob.getContentType());
 
-            if (submitJob.getTag() != null) {
-                for (String tag : submitJob.getTag()) {
-                    entity.addPart("tag", new StringBody(tag));
-                }
+            // Map print options into CJT structure
+            parameters.put("ticket", new Gson().toJson(submitJob.getTicket()));
+
+            // Add parameters
+            HttpMediaType mediaType = new HttpMediaType("multipart/form-data").setParameter("boundary", "__END_OF_PART__");
+            MultipartContent content = new MultipartContent().setMediaType(mediaType);
+
+            for (String name : parameters.keySet()) {
+                MultipartContent.Part part = new MultipartContent.Part(new ByteArrayContent(null, parameters.get(name).getBytes()));
+                part.setHeaders(new HttpHeaders().set("Content-Disposition", String.format("form-data; name=\"%s\"", name)));
+                content.addPart(part);
             }
-            response = openConnection("/submit?output=json&printerid=" + submitJob.getPrinterId(), entity);
+
+            // Add file
+            MultipartContent.Part part = new MultipartContent.Part(new ByteArrayContent(submitJob.getContentType(), submitJob.getContent()));
+            part.setHeaders(new HttpHeaders().set("Content-Disposition", String.format("form-data; name=\"content\"; filename=\"%s\"", submitJob.getTitle())));
+            content.addPart(part);
+
+            response = openConnection("/submit?output=json", content);
         } catch (Exception ex) {
             throw new CloudPrintException(ex);
-        } finally {
-            if (byteArrayInputStream != null) {
-                try {
-                    byteArrayInputStream.close();
-                } catch (IOException ex) {
-                    throw new CloudPrintException(ex);
-                }
-            }
-
-            if (inputStream != null) {
-                try {
-                    inputStream.close();
-                } catch (IOException ex) {
-                    throw new CloudPrintException(ex);
-                }
-            }
-
-            return gson.fromJson(new StringReader(response), SubmitJobResponse.class);
         }
+        return gson.fromJson(new StringReader(response), SubmitJobResponse.class);
     }
 
     /**
@@ -694,7 +618,7 @@ public class GoogleCloudPrint {
      * message.<br/>
      *
      * @param printerId Unique printer identification (generated by Google Cloud
-     * Print).
+     *                  Print).
      * @return DeletePrinterResponse
      * @throws CloudPrintException
      */
@@ -728,7 +652,7 @@ public class GoogleCloudPrint {
      * The response object contains a Boolean success indicator and a message.
      *
      * @param jobId The ID of the print job to be deleted. The print job must be
-     * owned by the user authenticated by the current authenticated session.
+     *              owned by the user authenticated by the current authenticated session.
      * @return DeleteJobResponse
      * @throws CloudPrintException
      */
@@ -747,13 +671,13 @@ public class GoogleCloudPrint {
      * used for any control, disabling, or filtering of the print job or the
      * printer.<br/><br/>
      *
-     * @param jobid Unique job identification (generated by server).
-     * @param status {
+     * @param jobid   Unique job identification (generated by server).
+     * @param status  {
      * @see JobStatus}
-     * @param code Error code string or integer (as returned by the printer or
-     * OS) if the status is ERROR.
+     * @param code    Error code string or integer (as returned by the printer or
+     *                OS) if the status is ERROR.
      * @param message Error message string (as returned by the printer or OS) if
-     * the status is ERROR
+     *                the status is ERROR
      * @return The response object contains a Boolean success indicator and a
      * message.
      * @throws CloudPrintException
@@ -809,74 +733,65 @@ public class GoogleCloudPrint {
      */
     public UpdatePrinterResponse updatePrinter(Printer printer) throws CloudPrintException {
         String response = "";
-        InputStream capabilitiesInputStream = null;
-        InputStream defaultInputStream = null;
         try {
-            MultipartEntity entity = new MultipartEntity();
-            if (isNotNullAndEmpty(printer.getName())) {
-                entity.addPart("printer", new StringBody(printer.getName()));
+
+            Map<String, String> parameters = Maps.newHashMap();
+            if (isNotNullAndIsFile(printer.getName())) {
+                parameters.put("printer", printer.getName());
+            }
+            if (isNotNullAndIsFile(printer.getDisplayName())) {
+                parameters.put("display_name", printer.getDisplayName());
+            }
+            if (isNotNullAndIsFile(printer.getProxy())) {
+                parameters.put("proxy", printer.getProxy());
             }
 
-            if (isNotNullAndEmpty(printer.getDisplayName())) {
-                entity.addPart("display_name", new StringBody(printer.getDisplayName()));
+            if (isNotNullAndEmpty(printer.getStatus())) {
+                parameters.put("status", printer.getStatus());
             }
 
-            if (isNotNullAndEmpty(printer.getProxy())) {
-                entity.addPart("proxy", new StringBody(printer.getProxy()));
+            if (isNotNullAndEmpty(printer.getDescription())) {
+                parameters.put("description", printer.getDescription());
+            }
+
+            if (isNotNullAndEmpty(printer.getCapsHash())) {
+                parameters.put("capsHash", printer.getCapsHash());
             }
 
             if (isNotNullAndIsFile(printer.getCapabilities())) {
                 File capabilitiesFile = (File) printer.getCapabilities();
-                capabilitiesInputStream = new FileInputStream(capabilitiesFile);
-                InputStreamBody capabilitiesInputStreamBody = new InputStreamBody(capabilitiesInputStream, capabilitiesFile.getName());
-                entity.addPart("capabilities", capabilitiesInputStreamBody);
+                String capabilitiesContent = FileUtils.readFileToString(capabilitiesFile);
+                parameters.put("capabilities", capabilitiesContent);
             }
 
             if (isNotNullAndIsFile(printer.getDefaults())) {
                 File defaultFile = (File) printer.getDefaults();
-                defaultInputStream = new FileInputStream(defaultFile);
-                InputStreamBody defaultInputStreamBody = new InputStreamBody(defaultInputStream, defaultFile.getName());
-                entity.addPart("defaults", defaultInputStreamBody);
+                String defaultContent = FileUtils.readFileToString(defaultFile);
+                parameters.put("defaults", defaultContent);
+            }
+
+            // Add parameters
+            HttpMediaType mediaType = new HttpMediaType("multipart/form-data").setParameter("boundary", "__END_OF_PART__");
+            MultipartContent content = new MultipartContent().setMediaType(mediaType);
+
+            for (String name : parameters.keySet()) {
+                MultipartContent.Part part = new MultipartContent.Part(new ByteArrayContent(null, parameters.get(name).getBytes()));
+                part.setHeaders(new HttpHeaders().set("Content-Disposition", String.format("form-data; name=\"%s\"", name)));
+                content.addPart(part);
             }
 
             if (printer.getTags() != null) {
-                for (String tag : printer.getTags()) {
-                    entity.addPart("tag", new StringBody(tag));
+                for (String tag : parameters.keySet()) {
+                    MultipartContent.Part part = new MultipartContent.Part(new ByteArrayContent(null, tag.getBytes()));
+                    part.setHeaders(new HttpHeaders().set("Content-Disposition", String.format("form-data; name=\"%s\"", "tag")));
                 }
             }
 
-            if (isNotNullAndEmpty(printer.getStatus())) {
-                entity.addPart("status", new StringBody(printer.getStatus()));
-            }
+            response = openConnection("/update?output=json&printerid=" + printer.getId(), content);
 
-            if (isNotNullAndEmpty(printer.getDescription())) {
-                entity.addPart("description", new StringBody(printer.getDescription()));
-            }
-
-            if (isNotNullAndEmpty(printer.getCapsHash())) {
-                entity.addPart("capsHash", new StringBody(printer.getCapsHash()));
-            }
-
-            response = openConnection("/update?output=json&printerid=" + printer.getId(), entity);
         } catch (UnsupportedEncodingException ex) {
             throw new CloudPrintException(ex);
         } finally {
-            if (capabilitiesInputStream != null) {
-                try {
-                    capabilitiesInputStream.close();
-                } catch (IOException ex) {
-                    throw new CloudPrintException(ex);
-                }
-            }
-
-            if (defaultInputStream != null) {
-                try {
-                    defaultInputStream.close();
-                } catch (IOException ex) {
-                    throw new CloudPrintException(ex);
-                }
-            }
-
             return gson.fromJson(new StringReader(response), UpdatePrinterResponse.class);
         }
     }
@@ -925,8 +840,6 @@ public class GoogleCloudPrint {
      */
     public RegisterPrinterResponse registerPrinter(Printer printer) throws CloudPrintException {
         String response = "";
-        InputStream capabilitiesInputStream = null;
-        InputStream defaultInputStream = null;
         try {
             if (printer.getName() == null) {
                 throw new CloudPrintException("Require attribute name.");
@@ -960,49 +873,41 @@ public class GoogleCloudPrint {
                 throw new CloudPrintException("Require attribute capsHash.");
             }
 
-            File capabilitiesFile = (File) printer.getCapabilities();
-            File defaultFile = (File) printer.getDefaults();
+            String capabilitiesFile = FileUtils.readFileToString((File) printer.getCapabilities());
+            String defaultFile = FileUtils.readFileToString((File) printer.getDefaults());
 
-            capabilitiesInputStream = new FileInputStream(capabilitiesFile);
-            defaultInputStream = new FileInputStream(defaultFile);
+            Map<String, String> parameters = Maps.newHashMap();
+            parameters.put("printer", printer.getName());
+            parameters.put("proxy", printer.getProxy());
+            parameters.put("capabilities", capabilitiesFile);
+            parameters.put("defaults", defaultFile);
 
-            InputStreamBody capabilitiesInputStreamBody = new InputStreamBody(capabilitiesInputStream, capabilitiesFile.getName());
-            InputStreamBody defaultInputStreamBody = new InputStreamBody(defaultInputStream, defaultFile.getName());
+            parameters.put("status", printer.getStatus());
+            parameters.put("description", printer.getDescription());
+            parameters.put("capsHash", printer.getCapsHash());
 
-            MultipartEntity entity = new MultipartEntity();
-            entity.addPart("printer", new StringBody(printer.getName()));
-            entity.addPart("proxy", new StringBody(printer.getProxy()));
-            entity.addPart("capabilities", capabilitiesInputStreamBody);
-            entity.addPart("defaults", defaultInputStreamBody);
+            // Add parameters
+            HttpMediaType mediaType = new HttpMediaType("multipart/form-data").setParameter("boundary", "__END_OF_PART__");
+            MultipartContent content = new MultipartContent().setMediaType(mediaType);
 
-            for (String tag : printer.getTags()) {
-                entity.addPart("tag", new StringBody(tag));
+            for (String name : parameters.keySet()) {
+                MultipartContent.Part part = new MultipartContent.Part(new ByteArrayContent(null, parameters.get(name).getBytes()));
+                part.setHeaders(new HttpHeaders().set("Content-Disposition", String.format("form-data; name=\"%s\"", name)));
+                content.addPart(part);
             }
 
-            entity.addPart("status", new StringBody(printer.getStatus()));
-            entity.addPart("description", new StringBody(printer.getDescription()));
-            entity.addPart("capsHash", new StringBody(printer.getCapsHash()));
+            if (printer.getTags() != null) {
+                for (String tag : parameters.keySet()) {
+                    MultipartContent.Part part = new MultipartContent.Part(new ByteArrayContent(null, tag.getBytes()));
+                    part.setHeaders(new HttpHeaders().set("Content-Disposition", String.format("form-data; name=\"%s\"", "tag")));
+                }
+            }
 
-            response = openConnection("/register?output=json", entity);
+            response = openConnection("/register?output=json", content);
+
         } catch (UnsupportedEncodingException ex) {
             throw new CloudPrintException(ex);
         } finally {
-            if (capabilitiesInputStream != null) {
-                try {
-                    capabilitiesInputStream.close();
-                } catch (IOException ex) {
-                    throw new CloudPrintException(ex);
-                }
-            }
-
-            if (defaultInputStream != null) {
-                try {
-                    defaultInputStream.close();
-                } catch (IOException ex) {
-                    throw new CloudPrintException(ex);
-                }
-            }
-
             return gson.fromJson(new StringReader(response), RegisterPrinterResponse.class);
         }
     }
@@ -1030,7 +935,7 @@ public class GoogleCloudPrint {
      * Output Control Parameters and Values.</a><br/>
      *
      * @param proxy Identification of the proxy, as submitted while registering
-     * the printer.
+     *              the printer.
      * @return ListPrinterResponse
      * @throws CloudPrintException
      */
@@ -1043,8 +948,8 @@ public class GoogleCloudPrint {
      * For share printer to target email
      *
      * @param printerId Unique printer identification (generated by Google Cloud
-     * Print).
-     * @param email Google Account or Google Email for share
+     *                  Print).
+     * @param email     Google Account or Google Email for share
      * @return SharePrinterResponse
      * @throws CloudPrintException
      */
@@ -1054,7 +959,7 @@ public class GoogleCloudPrint {
                 .append("&email=").append(email)
                 .append("&role=").append(RoleShare.APPENDER)
                 .toString());
-        
+
         return gson.fromJson(new StringReader(response), SharePrinterResponse.class);
     }
 
@@ -1072,17 +977,17 @@ public class GoogleCloudPrint {
      * - etc.
      *
      * @param ticketUrl The ticketUrl field in the response points to a job
-     * ticket that can be in XPS (<a
-     * href='http://en.wikipedia.org/wiki/Open_XML_Paper_Specification'>XML
-     * Paper Specification</a>) or PPD (<a
-     * href='http://en.wikipedia.org/wiki/PostScript_Printer_Description'>Postscript
-     * Printer Description</a>) format. In the future, other job ticket formats
-     * may be supported. The fileUrl field in the response points to the data to
-     * be printed. As the file download is an HTTP request, the printer /
-     * software connector should specify MIME types it can accept to print in
-     * the Accept header as defined by HTTP protocol. Google Cloud Print will
-     * try to convert the print data to a format acceptable to the printer /
-     * software connector.
+     *                  ticket that can be in XPS (<a
+     *                  href='http://en.wikipedia.org/wiki/Open_XML_Paper_Specification'>XML
+     *                  Paper Specification</a>) or PPD (<a
+     *                  href='http://en.wikipedia.org/wiki/PostScript_Printer_Description'>Postscript
+     *                  Printer Description</a>) format. In the future, other job ticket formats
+     *                  may be supported. The fileUrl field in the response points to the data to
+     *                  be printed. As the file download is an HTTP request, the printer /
+     *                  software connector should specify MIME types it can accept to print in
+     *                  the Accept header as defined by HTTP protocol. Google Cloud Print will
+     *                  try to convert the print data to a format acceptable to the printer /
+     *                  software connector.
      *
      * @return
      * @throws CloudPrintException
@@ -1093,6 +998,19 @@ public class GoogleCloudPrint {
         }
 
         return openConnection(ticketUrl);
+    }
+
+    /**
+     * Accept an shared printer invite using the API. Can be helpful when the printer has been shared with a service
+     * account, and the service account has no other way of accepting the share.
+     * @param printerId the printer ID
+     * @param accept whether to accept/reject the shared printer. After accepting, the service account will be able to
+     *               use the printer
+     *
+     */
+    public void processInvite(String printerId, boolean accept) throws CloudPrintException {
+        String response = openConnection("/processinvite?output=json&accept=" + accept + "&printerid=" + printerId);
+        LOG.info("proces invite response: " + response);
     }
 
     private boolean isNotNullAndEmpty(String string) {
