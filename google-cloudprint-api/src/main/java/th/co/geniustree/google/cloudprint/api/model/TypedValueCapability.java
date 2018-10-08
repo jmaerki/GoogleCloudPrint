@@ -4,11 +4,13 @@
  */
 package th.co.geniustree.google.cloudprint.api.model;
 
+import java.io.Serializable;
+
 /**
  *
  * @author jittagorn pitakmetagoon
  */
-public class TypedValueCapability {
+public class TypedValueCapability implements Serializable {
 
     private String value_type;
     private String deflt;

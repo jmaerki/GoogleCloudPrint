@@ -4,11 +4,13 @@
  */
 package th.co.geniustree.google.cloudprint.api.model;
 
+import java.io.Serializable;
+
 /**
  *
  * @author jittagorn pitakmetagoon
  */
-public class VendorCapability {
+public class VendorCapability implements Serializable {
 
     private String id;
     private String display_name;

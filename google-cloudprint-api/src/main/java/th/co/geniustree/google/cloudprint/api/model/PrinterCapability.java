@@ -4,13 +4,14 @@
  */
 package th.co.geniustree.google.cloudprint.api.model;
 
+import java.io.Serializable;
 import java.util.List;
 
 /**
  *
  * @author jittagorn pitakmetagoon
  */
-public class PrinterCapability {
+public class PrinterCapability implements Serializable {
 
     private Copies copies;
     private List<SupportedContentType> supported_content_type;

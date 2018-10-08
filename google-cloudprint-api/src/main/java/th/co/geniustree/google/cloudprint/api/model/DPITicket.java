@@ -4,11 +4,13 @@
  */
 package th.co.geniustree.google.cloudprint.api.model;
 
+import java.io.Serializable;
+
 /**
  *
  * @author jittagorn pitakmetagoon
  */
-public class DPITicket {
+public class DPITicket implements Serializable {
 
     private int horizontal_dpi;
     private int vertical_dpi;

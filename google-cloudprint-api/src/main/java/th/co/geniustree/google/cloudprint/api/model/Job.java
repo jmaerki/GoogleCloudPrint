@@ -5,13 +5,14 @@
 package th.co.geniustree.google.cloudprint.api.model;
 
 import com.google.gson.Gson;
+
+import java.io.Serializable;
 import java.util.Set;
 
 /**
- *
  * @author jittagorn pitakmetagoon
  */
-public class Job {
+public class Job implements Serializable {
 
     private String createTime;
     private Set<String> tags;
@@ -29,8 +30,6 @@ public class Job {
     private String title;
     private String errorCode;
     private int numberOfPages;
-    //
-    private Gson gson = new Gson();
 
     public String getCreateTime() {
         return createTime;
@@ -74,7 +73,7 @@ public class Job {
 
     public void setStatus(String jobStatus) {
         this.status = JobStatus.valueOf(jobStatus);
-        if(status == null){
+        if (status == null) {
             status = JobStatus.ERROR;
         }
     }
@@ -213,6 +212,6 @@ public class Job {
     }
 
     public String toJson() {
-        return gson.toJson(this);
+        return new Gson().toJson(this);
     }
 }

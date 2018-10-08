@@ -4,11 +4,13 @@
  */
 package th.co.geniustree.google.cloudprint.api.model;
 
+import java.io.Serializable;
+
 /**
  *
  * @author jittagorn pitakmetagoon
  */
-public class DuplexOption {
+public class DuplexOption implements Serializable {
 
     private boolean is_default;
     private String type;

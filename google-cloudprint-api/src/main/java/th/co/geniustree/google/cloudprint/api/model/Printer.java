@@ -5,14 +5,15 @@
 package th.co.geniustree.google.cloudprint.api.model;
 
 import com.google.gson.Gson;
+
+import java.io.Serializable;
 import java.util.List;
 import java.util.Set;
 
 /**
- *
  * @author jittagorn pitakmetagoon
  */
-public class Printer {
+public class Printer implements Serializable {
 
     private String id;
     private String ownerId;
@@ -36,8 +37,6 @@ public class Printer {
     private Object defaults;
     private List<Access> access;
     private String capsFormat;
-    //
-    private Gson gson = new Gson();
 
     public String getId() {
         return id;
@@ -187,7 +186,7 @@ public class Printer {
     }
 
     public String getTagsJSON() {
-        return gson.toJson(tags);
+        return new Gson().toJson(tags);
     }
 
     public void setTags(Set<String> tags) {
@@ -276,6 +275,6 @@ public class Printer {
     }
 
     public String toJson() {
-        return gson.toJson(this);
+        return new Gson().toJson(this);
     }
 }
