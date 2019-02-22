@@ -11,9 +11,10 @@
     <groupId>th.co.geniustree</groupId>
     <artifactId>google-cloudprint-api</artifactId>
     <version>1.0-SNAPSHOT</version>
-    <packaging>jar</packaging>
+    <packaging>bundle</packaging>
 
     <name>google-cloudprint-api</name>
+    <description>Google Cloud Print (GCP) API for Java</description>
     <url>http://maven.apache.org</url>
 
     <properties>
@@ -94,12 +95,35 @@
             <groupId>org.igniterealtime.smack</groupId>
             <artifactId>smack</artifactId>
             <version>3.2.1</version>
+            <type>jar</type>
         </dependency>
         <dependency>
             <groupId>org.igniterealtime.smack</groupId>
             <artifactId>smackx</artifactId>
             <version>3.2.1</version>
+            <type>jar</type>
         </dependency>
         <!-- SMACK -->
     </dependencies>
+  
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.felix</groupId>
+        <artifactId>maven-bundle-plugin</artifactId>
+        <extensions>true</extensions>
+        <configuration>
+          <instructions>
+            <Bundle-Category>printing</Bundle-Category>
+            <Bundle-DocURL>https://github.com/jittagornp/GoogleCloudPrint</Bundle-DocURL>
+            <!--
+            <Export-Package>javax.servlet;specification-version="2.1",javax.servlet.http;specification-version="2.1"</Export-Package>
+            -->
+            <Import-Package>org.jivesoftware.smack*;version="[3.2,4)",org.apache.http*;version="[4.4,5)",*</Import-Package>
+          </instructions>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+  
 </project>
