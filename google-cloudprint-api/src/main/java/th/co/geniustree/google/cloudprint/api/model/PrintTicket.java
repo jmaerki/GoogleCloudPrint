@@ -4,13 +4,14 @@
  */
 package th.co.geniustree.google.cloudprint.api.model;
 
+import java.io.Serializable;
 import java.util.List;
 
 /**
  *
  * @author jittagorn pitakmetagoon
  */
-public class PrintTicket {
+public class PrintTicket implements Serializable {
 
     private List<VendorTicketItem> vendor_ticket_item;
     private ColorTicket color;

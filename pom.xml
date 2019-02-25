@@ -3,11 +3,23 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>th.co.geniustree</groupId>
   <artifactId>google-cloudprint</artifactId>
-  <version>1.0-SNAPSHOT</version>
+  <version>1.1-SNAPSHOT</version>
   <packaging>pom</packaging>
   <name>google-cloudprint</name>
     <modules>
         <module>google-cloudprint-api</module>
         <module>google-cloudprint-example</module>
     </modules>
+
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>1.8</source>
+                    <target>1.8</target>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>

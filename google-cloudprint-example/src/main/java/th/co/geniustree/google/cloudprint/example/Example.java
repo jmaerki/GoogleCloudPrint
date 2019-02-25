@@ -4,16 +4,8 @@
  */
 package th.co.geniustree.google.cloudprint.example;
 
+import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.gson.Gson;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.URL;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Properties;
-import java.util.Set;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
@@ -23,34 +15,25 @@ import org.slf4j.LoggerFactory;
 import th.co.geniustree.google.cloudprint.api.GoogleCloudPrint;
 import th.co.geniustree.google.cloudprint.api.exception.CloudPrintAuthenticationException;
 import th.co.geniustree.google.cloudprint.api.exception.CloudPrintException;
-import th.co.geniustree.google.cloudprint.api.model.Job;
-import th.co.geniustree.google.cloudprint.api.model.JobListener;
-import th.co.geniustree.google.cloudprint.api.model.JobStatus;
-import th.co.geniustree.google.cloudprint.api.model.Printer;
-import th.co.geniustree.google.cloudprint.api.model.PrinterStatus;
-import th.co.geniustree.google.cloudprint.api.model.SubmitJob;
-import th.co.geniustree.google.cloudprint.api.model.Ticket;
-import th.co.geniustree.google.cloudprint.api.model.response.ControlJobResponse;
-import th.co.geniustree.google.cloudprint.api.model.response.DeleteJobResponse;
-import th.co.geniustree.google.cloudprint.api.model.response.DeletePrinterResponse;
-import th.co.geniustree.google.cloudprint.api.model.response.FecthJobResponse;
-import th.co.geniustree.google.cloudprint.api.model.response.JobResponse;
-import th.co.geniustree.google.cloudprint.api.model.response.PrinterInformationResponse;
-import th.co.geniustree.google.cloudprint.api.model.response.RegisterPrinterResponse;
-import th.co.geniustree.google.cloudprint.api.model.response.SearchPrinterResponse;
-import th.co.geniustree.google.cloudprint.api.model.response.SharePrinterResponse;
-import th.co.geniustree.google.cloudprint.api.model.response.SubmitJobResponse;
-import th.co.geniustree.google.cloudprint.api.model.response.UpdatePrinterResponse;
-import th.co.geniustree.google.cloudprint.api.util.PropertiesFileUtils;
+import th.co.geniustree.google.cloudprint.api.model.*;
+import th.co.geniustree.google.cloudprint.api.model.response.*;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
- *
  * @author jittagorn pitakmetagoon
  */
 public class Example {
 
     private static final Logger LOG = LoggerFactory.getLogger(Example.class);
-    private static final GoogleCloudPrint cloudPrint = new GoogleCloudPrint();
+    private static GoogleCloudPrint cloudPrint;
     private static Gson gson = new Gson();
 
     static {
@@ -58,13 +41,13 @@ public class Example {
         //System.setProperty("smack.debugEnabled", "true");
     }
 
-    public static void main(String[] args) {
-        try {
-            Properties properties = PropertiesFileUtils.load("/account.properties");
-            String email = properties.getProperty("email");
-            String password = properties.getProperty("password");
+    public static void main(String[] args) throws Exception {
 
-            cloudPrint.connect(email, password, "geniustree-cloudprint-1.0");
+        try {
+            GoogleCredential credential = GoogleCredential.fromStream(new FileInputStream("your_key_file.json"))
+                    .createScoped(Arrays.asList("https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/cloudprint"));
+            cloudPrint = new GoogleCloudPrint(credential);
+
             //searchAllPrinters();
             //searchPrinter("fax", PrinterStatus.ALL);
             //getJobs();
@@ -174,8 +157,6 @@ public class Example {
             String jsonTicket = IOUtils.toString(jsonInputStream);
             Ticket ticket = gson.fromJson(jsonTicket, Ticket.class);
 
-            String json = gson.toJson(ticket);
-            LOG.debug("json => {}", json);
             SubmitJob submitJob = new SubmitJob();
             submitJob.setContent(content);
             submitJob.setContentType("image/png");

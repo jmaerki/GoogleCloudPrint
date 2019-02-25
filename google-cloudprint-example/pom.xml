@@ -5,12 +5,12 @@
     <parent>
         <groupId>th.co.geniustree</groupId>
         <artifactId>google-cloudprint</artifactId>
-        <version>1.0-SNAPSHOT</version>
+        <version>1.1-SNAPSHOT</version>
     </parent>
-    
+
     <groupId>th.co.geniustree</groupId>
     <artifactId>google-cloudprint-example</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.1-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>google-cloudprint-example</name>
@@ -22,16 +22,15 @@
 
     <dependencies>
         <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>3.8.1</version>
-            <scope>test</scope>
-        </dependency>
-    
-        <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>google-cloudprint-api</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>1.0.6</version>
+        </dependency>
+
     </dependencies>
 </project>

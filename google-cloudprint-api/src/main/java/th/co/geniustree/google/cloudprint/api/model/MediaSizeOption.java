@@ -4,11 +4,13 @@
  */
 package th.co.geniustree.google.cloudprint.api.model;
 
+import java.io.Serializable;
+
 /**
  *
  * @author jittagorn pitakmetagoon
  */
-public class MediaSizeOption {
+public class MediaSizeOption implements Serializable {
 
     private int height_microns;
     private int width_microns;

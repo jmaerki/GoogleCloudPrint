@@ -4,13 +4,14 @@
  */
 package th.co.geniustree.google.cloudprint.api.model;
 
+import java.io.Serializable;
 import java.util.List;
 
 /**
  *
  * @author jittagorn pitakmetagoon
  */
-public class SelectCapability {
+public class SelectCapability implements Serializable {
 
     private List<SelectCapabilityOption> option;
 

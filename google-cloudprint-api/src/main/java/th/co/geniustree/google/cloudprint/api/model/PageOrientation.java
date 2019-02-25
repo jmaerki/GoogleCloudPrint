@@ -4,13 +4,14 @@
  */
 package th.co.geniustree.google.cloudprint.api.model;
 
+import java.io.Serializable;
 import java.util.List;
 
 /**
  *
  * @author jittagorn pitakmetagoon
  */
-public class PageOrientation {
+public class PageOrientation implements Serializable {
 
     private List<PageOrientationOption> option;
 

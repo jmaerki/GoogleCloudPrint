@@ -4,11 +4,13 @@
  */
 package th.co.geniustree.google.cloudprint.api.model;
 
+import java.io.Serializable;
+
 /**
  *
  * @author jittagorn pitakmetagoon
  */
-public class CopiesTicket {
+public class CopiesTicket implements Serializable {
 
     private int copies;
 

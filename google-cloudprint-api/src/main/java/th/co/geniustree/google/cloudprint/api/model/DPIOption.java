@@ -4,11 +4,13 @@
  */
 package th.co.geniustree.google.cloudprint.api.model;
 
+import java.io.Serializable;
+
 /**
  *
  * @author jittagorn pitakmetagoon
  */
-public class DPIOption {
+public class DPIOption implements Serializable {
 
     private int vertical_dpi;
     private boolean is_default;
